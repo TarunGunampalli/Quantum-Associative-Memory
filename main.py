@@ -158,19 +158,25 @@ def SavePatterns(patterns):
 
 
 def GroverSearch(s):
-    assert s >= 0 and s < N, "Invalid Search Parameter"
-    sig = (("{0:0" + str(n) + "b}").format(s))[::-1]
-    print(sig)
+    if type(s) is int:
+        assert s >= 0 and s < N, "Invalid Search Parameter"
+        s = (("{0:0" + str(n) + "b}").format(s))[::-1]
+    elif type(s) is str:
+        s = s[::-1]
+    
+    print(getState())
     qc.x(output[0])
     qc.h(output[0])
+    
+
 
     for i in range(R):
-        multiCX(qc, x, output, sig)  # unitary
+        multiCX(qc, x, output, s)  # unitary
         GroverDiffusion()  # W
         if i == 0:  # after first iteration
             multiCX(qc, c, output, "10")  # phase rotate saved patterns
             GroverDiffusion()  # W
-        print(getState())
+            print(getState())
 
     qc.h(output[0])
     qc.x(output[0])
@@ -181,7 +187,7 @@ def GroverSearch(s):
 
 patterns = ["01","10","11"]
 SavePatterns(patterns)
-GroverSearch(1)
+GroverSearch("01")
 qc.measure(x, xc)
 qc.measure(g, gc)
 qc.measure(c, cc)
