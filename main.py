@@ -8,7 +8,7 @@ from qiskit.visualization import (
     plot_bloch_vector,
 )
 
-n = 2
+n = 3
 N = 2 ** n
 R = int(np.floor(np.pi * np.sqrt(N) / 4))
 x = QuantumRegister(n)
@@ -162,7 +162,10 @@ def GroverSearch(s):
         assert s >= 0 and s < N, "Invalid Search Parameter"
         s = (("{0:0" + str(n) + "b}").format(s))[::-1]
     elif type(s) is str:
+        assert len(s) == n
         s = s[::-1]
+    else:
+        return
     
     print(getState())
     qc.x(output[0])
@@ -185,9 +188,9 @@ def GroverSearch(s):
     # for i in range(n):
     #     qc.measure(i + 1, i)
 
-patterns = ["01","10","11"]
+patterns = ["000", "001", "010", "100","111"]
 SavePatterns(patterns)
-GroverSearch("01")
+GroverSearch("010")
 qc.measure(x, xc)
 qc.measure(g, gc)
 qc.measure(c, cc)
