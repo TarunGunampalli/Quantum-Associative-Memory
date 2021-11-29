@@ -8,17 +8,15 @@ from qiskit.visualization import (
     plot_bloch_vector,
 )
 
-n = 3
+n = 4
 N = 2 ** n
 R = int(np.floor(np.pi * np.sqrt(N) / 4))
 x = QuantumRegister(n)
-g = QuantumRegister(1)
 c = QuantumRegister(2)
 xc = ClassicalRegister(n)
-gc = ClassicalRegister(1)
 cc = ClassicalRegister(2)
 output = QuantumRegister(1)
-qc = QuantumCircuit(x, g, c, output, xc, gc, cc)
+qc = QuantumCircuit(x, c, output, xc, cc)
 
 
 def multiPhase(qc, q, theta):
@@ -120,10 +118,12 @@ def Flip(patterns, index):
 
     multiCX(qc, x, c[1], pattern)
 
+
 def S(p):
     theta = 2 * np.arccos(np.sqrt((p - 1) / p))
     qc.cu(theta, 0, 0, 0, c[1], c[0])
-    
+
+
 def Save(pattern):
     sig = pattern[::-1]
     multiCX(qc, x, c[1], sig)
@@ -143,12 +143,12 @@ def getState():
         coefficient = "{0:.2f}".format(coefficient)
         result += coefficient + " |" + state_str + "> + "
     result = result[: len(result) - 3]
-    return result
+    return result + "\n"
 
 
 def SavePatterns(patterns):
     m = len(patterns)
-    assert m < 2 ** n
+    assert m <= 2 ** n
     for i in range(m):
         pattern = patterns[i]
         assert len(pattern) == n
@@ -157,7 +157,7 @@ def SavePatterns(patterns):
         Save(pattern)
 
 
-def GroverSearch(s):
+def GroverSearch(patterns, s):
     if type(s) is int:
         assert s >= 0 and s < N, "Invalid Search Parameter"
         s = (("{0:0" + str(n) + "b}").format(s))[::-1]
@@ -166,20 +166,25 @@ def GroverSearch(s):
         s = s[::-1]
     else:
         return
-    
-    print(getState())
+
     qc.x(output[0])
     qc.h(output[0])
-    
 
+    multiCX(qc, x, output, s)  # unitary
+    GroverDiffusion()  # W
 
-    for i in range(R):
+    # modified iteration
+    for pattern in patterns:
+        multiCX(qc, x, output, pattern[::-1])   # phase rotate saved patterns
+    print(getState())
+    GroverDiffusion()  # W
+    print(getState())
+
+    for i in range(R - 2):
         multiCX(qc, x, output, s)  # unitary
+        # print(getState())
         GroverDiffusion()  # W
-        if i == 0:  # after first iteration
-            multiCX(qc, c, output, "10")  # phase rotate saved patterns
-            GroverDiffusion()  # W
-            print(getState())
+        # print(getState())
 
     qc.h(output[0])
     qc.x(output[0])
@@ -188,11 +193,11 @@ def GroverSearch(s):
     # for i in range(n):
     #     qc.measure(i + 1, i)
 
-patterns = ["000", "001", "010", "100","111"]
+
+patterns = ["0000", "0011", "0110", "1001", "1100", "1111"]
 SavePatterns(patterns)
-GroverSearch("010")
+GroverSearch(patterns, "0110")
 qc.measure(x, xc)
-qc.measure(g, gc)
 qc.measure(c, cc)
 
 # execute the quantum circuit
