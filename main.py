@@ -8,6 +8,7 @@ from qiskit.visualization import (
     plot_bloch_vector,
 )
 
+patterns = ["0000", "0011", "0110", "1001", "1100", "1111"]
 n = 4
 N = 2 ** n
 R = int(np.floor(np.pi * np.sqrt(N) / 4))
@@ -18,15 +19,16 @@ cc = ClassicalRegister(2)
 output = QuantumRegister(1)
 qc = QuantumCircuit(x, c, output, xc, cc)
 
+
 def getBitstring(s):
     if type(s) is int:
         assert s >= 0 and s < N, "Invalid Search Parameter"
-        return (("{0:0" + str(n) + "b}").format(s))
+        return ("{0:0" + str(n) + "b}").format(s)
     elif type(s) is str:
         assert len(s) == n
         return s
     else:
-        raise Exception('Invalid bitstring type')
+        raise Exception("Invalid bitstring type")
 
 
 def multiPhase(qc, q, theta):
@@ -103,16 +105,14 @@ def multiCZ(qc, q_controls, q_target, sig=None):
 
 
 def GroverDiffusion():
-    for i in range(n):
-        qc.h(x[i])
-        qc.x(x[i])
+    qc.h(x)
+    qc.x(x)
     multiPhase(qc, x, np.pi)
-    for i in range(n):
-        qc.x(x[i])
-        qc.h(x[i])
+    qc.x(x)
+    qc.h(x)
 
 
-def Flip(patterns, index):
+def Flip(index):
     prevPattern = ""
     if index == 0:
         prevPattern = "0" * n
@@ -156,18 +156,18 @@ def getState():
     return result + "\n"
 
 
-def SavePatterns(patterns):
+def SavePatterns():
     m = len(patterns)
     assert m <= 2 ** n
     for i in range(m):
         pattern = getBitstring(patterns[i])
         assert len(pattern) == n
-        Flip(patterns, i)
+        Flip(i)
         S(m - i)
         Save(pattern)
 
 
-def GroverSearch(patterns, s):
+def GroverSearch(s):
     s = getBitstring(s)[::-1]
 
     qc.x(output[0])
@@ -178,7 +178,7 @@ def GroverSearch(patterns, s):
 
     # modified iteration
     for pattern in patterns:
-        multiCX(qc, x, output, getBitstring(pattern)[::-1])   # phase rotate saved patterns
+        multiCX(qc, x, output, getBitstring(pattern)[::-1])  # phase rotate saved patterns
     GroverDiffusion()  # W
 
     for i in range(R - 2):
@@ -189,11 +189,12 @@ def GroverSearch(patterns, s):
     qc.x(output[0])
     qc.barrier()
 
-patterns = ["0000", "0011", "0110", "1001", "1100", "1111"]
-SavePatterns(patterns)
-GroverSearch(patterns, "0110")
-qc.measure(x, xc)
-qc.measure(c, cc)
+    qc.measure(x, xc)
+    qc.measure(c, cc)
+
+
+SavePatterns()
+GroverSearch("0110")
 
 # execute the quantum circuit
 backend = Aer.get_backend("qasm_simulator")
