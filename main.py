@@ -210,6 +210,10 @@ def GroverSearch(s):
 
 
 SavePatterns()
+
+print("Saved State")
+print(getState())
+
 GroverSearch("00??")
 
 # execute the quantum circuit
