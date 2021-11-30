@@ -18,6 +18,16 @@ cc = ClassicalRegister(2)
 output = QuantumRegister(1)
 qc = QuantumCircuit(x, c, output, xc, cc)
 
+def getBitstring(s):
+    if type(s) is int:
+        assert s >= 0 and s < N, "Invalid Search Parameter"
+        return (("{0:0" + str(n) + "b}").format(s))
+    elif type(s) is str:
+        assert len(s) == n
+        return s
+    else:
+        raise Exception('Invalid bitstring type')
+
 
 def multiPhase(qc, q, theta):
     # multi-qubit controlled phase rotation
@@ -150,7 +160,7 @@ def SavePatterns(patterns):
     m = len(patterns)
     assert m <= 2 ** n
     for i in range(m):
-        pattern = patterns[i]
+        pattern = getBitstring(patterns[i])
         assert len(pattern) == n
         Flip(patterns, i)
         S(m - i)
@@ -158,14 +168,7 @@ def SavePatterns(patterns):
 
 
 def GroverSearch(patterns, s):
-    if type(s) is int:
-        assert s >= 0 and s < N, "Invalid Search Parameter"
-        s = (("{0:0" + str(n) + "b}").format(s))[::-1]
-    elif type(s) is str:
-        assert len(s) == n
-        s = s[::-1]
-    else:
-        return
+    s = getBitstring(s)[::-1]
 
     qc.x(output[0])
     qc.h(output[0])
@@ -175,24 +178,16 @@ def GroverSearch(patterns, s):
 
     # modified iteration
     for pattern in patterns:
-        multiCX(qc, x, output, pattern[::-1])   # phase rotate saved patterns
-    print(getState())
+        multiCX(qc, x, output, getBitstring(pattern)[::-1])   # phase rotate saved patterns
     GroverDiffusion()  # W
-    print(getState())
 
     for i in range(R - 2):
         multiCX(qc, x, output, s)  # unitary
-        # print(getState())
         GroverDiffusion()  # W
-        # print(getState())
 
     qc.h(output[0])
     qc.x(output[0])
     qc.barrier()
-
-    # for i in range(n):
-    #     qc.measure(i + 1, i)
-
 
 patterns = ["0000", "0011", "0110", "1001", "1100", "1111"]
 SavePatterns(patterns)
