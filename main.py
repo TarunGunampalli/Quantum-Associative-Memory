@@ -1,6 +1,7 @@
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, Aer, execute
 from qiskit.quantum_info import Statevector
 import numpy as np
+import copy
 from qiskit.visualization import (
     plot_histogram,
     plot_state_qsphere,
@@ -8,7 +9,7 @@ from qiskit.visualization import (
     plot_bloch_vector,
 )
 
-patterns = ["0000", "0011", "0110", "1001", "1100", "1111"]
+patterns = ["0000", "0011", "0110", "0101", "1001", "1100", "1111"]
 n = 4
 N = 2 ** n
 R = int(np.floor(np.pi * np.sqrt(N) / 4))
@@ -155,6 +156,19 @@ def getState():
     result = result[: len(result) - 3]
     return result + "\n"
 
+def parseQuery(q):
+    xRegs = x
+    i = 0
+    while i < len(q):
+        char = q[i]
+        if char == '?':
+            xRegs = xRegs[:i] + xRegs[i + 1:]
+            q = q[:i] + q[i + 1:]
+        else:
+            i += 1
+    
+    return xRegs, q
+
 
 def SavePatterns():
     m = len(patterns)
@@ -173,7 +187,9 @@ def GroverSearch(s):
     qc.x(output[0])
     qc.h(output[0])
 
-    multiCX(qc, x, output, s)  # unitary
+    xRegs, s = parseQuery(s)
+
+    multiCX(qc, xRegs, output, s)  # unitary
     GroverDiffusion()  # W
 
     # modified iteration
@@ -182,19 +198,19 @@ def GroverSearch(s):
     GroverDiffusion()  # W
 
     for i in range(R - 2):
-        multiCX(qc, x, output, s)  # unitary
+        multiCX(qc, xRegs, output, s)  # unitary
         GroverDiffusion()  # W
 
     qc.h(output[0])
     qc.x(output[0])
     qc.barrier()
-
+    
     qc.measure(x, xc)
     qc.measure(c, cc)
 
 
 SavePatterns()
-GroverSearch("0110")
+GroverSearch("00??")
 
 # execute the quantum circuit
 backend = Aer.get_backend("qasm_simulator")
