@@ -9,19 +9,20 @@ from qiskit.visualization import (
     plot_bloch_vector,
 )
 
-patterns = ["0000", "0011", "0110", "0101", "1001", "1100", "1111"]
-n = 4
-N = 2 ** n
-R = int(np.floor(np.pi * np.sqrt(N) / 4))
-x = QuantumRegister(n)
-c = QuantumRegister(2)
-xc = ClassicalRegister(n)
-cc = ClassicalRegister(2)
-output = QuantumRegister(1)
-qc = QuantumCircuit(x, c, output, xc, cc)
+# patterns = ["0000", "0011", "0110", "0101", "1001", "1100", "1111"]
+# n = 4
+# N = 2 ** n
+# R = int(np.floor(np.pi * np.sqrt(N) / 4))
+# x = QuantumRegister(n)
+# c = QuantumRegister(2)
+# xc = ClassicalRegister(n)
+# cc = ClassicalRegister(2)
+# output = QuantumRegister(1)
+# qc = QuantumCircuit(x, c, output, xc, cc)
 
 
-def getBitstring(s):
+def getBitstring(n, s):
+    N = 2 ** n
     if type(s) is int:
         assert s >= 0 and s < N, "Invalid Search Parameter"
         return ("{0:0" + str(n) + "b}").format(s)
@@ -105,7 +106,7 @@ def multiCZ(qc, q_controls, q_target, sig=None):
     return
 
 
-def GroverDiffusion():
+def GroverDiffusion(qc, x, c, output, xc, cc):
     qc.h(x)
     qc.x(x)
     multiPhase(qc, x, np.pi)
@@ -113,7 +114,8 @@ def GroverDiffusion():
     qc.h(x)
 
 
-def Flip(index):
+def Flip(qc, x, c, output, xc, cc, patterns, index):
+    n = len(x)
     prevPattern = ""
     if index == 0:
         prevPattern = "0" * n
@@ -130,17 +132,18 @@ def Flip(index):
     multiCX(qc, x, c[1], pattern)
 
 
-def S(p):
+def S(qc, x, c, output, xc, cc, p):
     theta = 2 * np.arccos(np.sqrt((p - 1) / p))
     qc.cu(theta, 0, 0, 0, c[1], c[0])
 
 
-def Save(pattern):
+def Save(qc, x, c, output, xc, cc, pattern):
     sig = pattern[::-1]
     multiCX(qc, x, c[1], sig)
 
 
-def getState():
+def getState(qc, x):
+    n = len(x)
     result = ""
     probs = Statevector.from_instruction(qc).probabilities()
     for state in range(len(probs)):
@@ -158,68 +161,95 @@ def getState():
     result = result[: len(result) - 3]
     return result + "\n"
 
-def parseQuery(q):
+
+def parseQuery(qc, x, c, output, xc, cc, q):
     xRegs = x
     i = 0
     while i < len(q):
         char = q[i]
-        if char == '?':
-            xRegs = xRegs[:i] + xRegs[i + 1:]
-            q = q[:i] + q[i + 1:]
+        if char == "?":
+            xRegs = xRegs[:i] + xRegs[i + 1 :]
+            q = q[:i] + q[i + 1 :]
         else:
             i += 1
-    
+
     return xRegs, q
 
 
-def SavePatterns():
+def SavePatterns(qc, x, c, output, xc, cc, patterns):
+    n = len(x)
     m = len(patterns)
     assert m <= 2 ** n
     for i in range(m):
-        pattern = getBitstring(patterns[i])
+        pattern = getBitstring(n, patterns[i])
         assert len(pattern) == n
-        Flip(i)
-        S(m - i)
-        Save(pattern)
+        Flip(qc, x, c, output, xc, cc, patterns, i)
+        S(qc, x, c, output, xc, cc, m - i)
+        Save(qc, x, c, output, xc, cc, pattern)
 
 
-def GroverSearch(s):
-    s = getBitstring(s)[::-1]
+def GroverSearch(qc, x, c, output, xc, cc, R, s):
+    n = len(x)
+    s = getBitstring(n, s)[::-1]
 
     qc.x(output[0])
     qc.h(output[0])
 
-    xRegs, s = parseQuery(s)
+    xRegs, s = parseQuery(qc, x, c, output, xc, cc, s)
 
     multiCX(qc, xRegs, output, s)  # unitary
-    GroverDiffusion()  # W
+    GroverDiffusion(qc, x, c, output, xc, cc)  # W
 
     # modified iteration
     for pattern in patterns:
-        multiCX(qc, x, output, getBitstring(pattern)[::-1])  # phase rotate saved patterns
-    GroverDiffusion()  # W
+        multiCX(
+            qc, x, output, getBitstring(n, pattern)[::-1]
+        )  # phase rotate saved patterns
+    GroverDiffusion(qc, x, c, output, xc, cc)  # W
 
     for i in range(R - 2):
         multiCX(qc, xRegs, output, s)  # unitary
-        GroverDiffusion()  # W
+        GroverDiffusion(qc, x, c, output, xc, cc)  # W
 
     qc.h(output[0])
     qc.x(output[0])
     qc.barrier()
-    
+
     qc.measure(x, xc)
     qc.measure(c, cc)
 
 
-SavePatterns()
+def QuAM(patterns, search):
+    print(f'Searching for \'{search}\' from {patterns}\n')
+    n = len(patterns[0])
+    N = 2 ** n
+    R = int(np.floor(np.pi * np.sqrt(N) / 4))
+    x = QuantumRegister(n)
+    c = QuantumRegister(2)
+    xc = ClassicalRegister(n)
+    cc = ClassicalRegister(2)
+    output = QuantumRegister(1)
+    qc = QuantumCircuit(x, c, output, xc, cc)
+    SavePatterns(qc, x, c, output, xc, cc, patterns)
 
-print("Saved State")
-print(getState())
+    print("Saved State")
+    print(getState(qc, x))
 
-GroverSearch("00??")
+    GroverSearch(qc, x, c, output, xc, cc, R, search)
 
-# execute the quantum circuit
-backend = Aer.get_backend("qasm_simulator")
-job = execute(qc, backend, shots=1024)
-data = job.result().get_counts(qc)
-print(data)
+    # execute the quantum circuit
+    backend = Aer.get_backend("qasm_simulator")
+    job = execute(qc, backend, shots=1024)
+    data = job.result().get_counts(qc)
+    print(data)
+
+    print()
+    print()
+
+
+patterns = ["0000", "0011", "0110", "0101", "1001", "1100", "1111"]
+QuAM(patterns, "0011")
+
+QuAM(patterns, "10??")
+
+QuAM(patterns, "00??")
