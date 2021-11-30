@@ -144,8 +144,10 @@ def getState():
     result = ""
     probs = Statevector.from_instruction(qc).probabilities()
     for state in range(len(probs)):
-        bformat = "{0:0" + str(n + 4) + "b}"
+        extra_bits = 3
+        bformat = "{0:0" + str(n + extra_bits) + "b}"
         state_str = bformat.format(state)
+        state_str = state_str[extra_bits:]
         if np.abs(probs[state]) < 0.0001:
             continue
         elif probs[state] == 1:
